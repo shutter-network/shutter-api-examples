@@ -1,0 +1,247 @@
+# Shutter Hello World Tutorial
+
+This tutorial will guide you through creating a basic Shutter encryption/decryption application. We'll build it step by step, focusing on the core functionality.
+
+## Prerequisites
+
+- Setup a React application (create-react-app, Next.js, Vite, etc.)
+- Basic understanding of React hooks and TypeScript
+
+## Step 1: Setting Up Dependencies
+
+First, install the required packages:
+
+```bash
+npm install @shutter-network/shutter-sdk viem
+```
+
+## Step 2: Creating the API Layer
+
+Create a new file `src/api.ts` and copy all the contents to it. For a detailed documentation regarding shutter-api and shutter-sdk please visit thier respective docs at: [Shutter-Api](https://shutter-api.shutter.network/docs/index.html), [Shutter-SDK](https://github.com/shutter-network/shutter-sdk)
+
+```typescript
+// src/api.ts
+
+// This constant defines how long we need to wait before the decryption key becomes available
+export const DECRYPTION_DELAY = 120; // 2 minutes
+
+/* This function registers an identity for a said timestamp. Timestamp provided to this function is meant to be some time in the future at which you want the decryption keys to be released. Once the identity gets registered the endpoint will return the eon key and identity needed for encryption which we utilize in the encrypt function inside src/App.tsx */
+export async function fetchShutterData(decryptionTimestamp: number): Promise<{
+    eon_key: string;
+    identity: string;
+}>;
+
+/* Fetches the decryption key for a given identity which we retreived fetchShutterData function. This key becomes available only after the DECRYPTION_DELAY has passed for this tutorial*/
+export async function fetchDecryptionKey(identity: string): Promise<{
+    decryption_key: string;
+}>;
+```
+
+### API Functions Explanation
+
+1. **DECRYPTION_DELAY**
+   - Purpose: Defines the time delay before decryption is possible
+   - Value: 120 seconds (2 minutes)
+
+2. **fetchShutterData**
+   - Purpose: Registers identity and fetches encryption parameters from the Shutter API
+   - Why we need it: Provides the necessary keys (eon_key and identity) for encryption
+   - Parameters: 
+     - `decryptionTimestamp`: When the message should be decryptable
+   - Returns: Object containing eon_key and identity
+
+3. **fetchDecryptionKey**
+   - Purpose: Retrieves the decryption key for a message
+   - Why we need it: Required to decrypt the message after the delay period
+   - Parameters:
+     - `identity`: The identity used during encryption
+   - Returns: Object containing the decryption key
+
+Note: You'll need to implement these functions to make actual API calls to your Shutter API endpoints.
+
+## Step 3: Creating Utility Functions
+
+Create a new file `src/utils.ts`:
+
+```typescript
+// src/utils.ts
+export function ensureHexString(value: string): string {
+    return value.startsWith('0x') ? value : `0x${value}`;
+}
+
+export function generateRandomBytes32(): string {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return `0x${Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+}
+```
+
+## Step 4: Building the Main Component
+
+Create your main component `src/App.tsx`. Let's build it step by step:
+
+### Step 4.1: Setting Up State
+
+```typescript
+import React, { useState, useEffect } from 'react';
+import { encryptData, decrypt as shutterDecrypt } from "@shutter-network/shutter-sdk"
+import { hexToString, stringToHex } from "viem";
+import { DECRYPTION_DELAY, fetchDecryptionKey, fetchShutterData } from './api';
+import { ensureHexString, generateRandomBytes32 } from './utils';
+
+function App() {
+    // State management
+    const [input, setInput] = useState('');
+    const [encryptedMessage, setEncryptedMessage] = useState('');
+    const [decryptedMessage, setDecryptedMessage] = useState('');
+    const [countdown, setCountdown] = useState<number | null>(null);
+    const [encryptionTimestamp, setEncryptionTimestamp] = useState<number | null>(null);
+    const [identity, setIdentity] = useState<string>('');
+    const [error, setError] = useState<string>('');
+```
+
+### Step 4.2: Implementing the Countdown Timer
+
+```typescript
+    // Countdown timer effect
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (countdown !== null && countdown > 0) {
+            timer = setInterval(() => {
+                setCountdown(prev => prev !== null ? prev - 1 : null);
+            }, 1000);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [countdown]);
+```
+
+### Step 4.3: Implementing the Encryption Function
+
+```typescript
+    async function encrypt(): Promise<void> {
+        setError(''); // Clear any previous errors
+        
+        // 1. Calculate decryption timestamp
+        const decryptionTimestamp = Math.floor(Date.now() / 1000) + DECRYPTION_DELAY;
+        setEncryptionTimestamp(decryptionTimestamp);
+        setCountdown(DECRYPTION_DELAY);
+
+        try {
+            // 2. Fetch encryption data
+            const shutterData = await fetchShutterData(decryptionTimestamp);
+
+            // 3. Extract and format keys
+            const eonKeyHex = ensureHexString(shutterData.eon_key);
+            const identityHex = ensureHexString(shutterData.identity);
+            setIdentity(identityHex);
+
+            // 4. Prepare message and sigma
+            const msgHex = stringToHex(input);
+            const sigmaHex = generateRandomBytes32();
+
+            // 5. Encrypt the message
+            const encryptedCommitment = await encryptData(msgHex, identityHex, eonKeyHex, sigmaHex);
+            setEncryptedMessage(encryptedCommitment);
+        } catch (err) {
+            setError("Encryption failed. Please try again.");
+        }
+    }
+```
+
+### Step 4.4: Implementing the Decryption Function
+
+```typescript
+    async function decrypt(): Promise<void> {
+        setError('');
+        
+        // 1. Check if we have an identity
+        if (!identity) {
+            setError("No identity available. Please encrypt a message first.");
+            return;
+        }
+
+        // 2. Check if enough time has passed
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (!encryptionTimestamp || currentTime < encryptionTimestamp + 5) {
+            setError("Please wait before decryption key is available");
+            return;
+        }
+
+        try {
+            // 3. Fetch decryption key
+            const decryptionKeyData = await fetchDecryptionKey(identity);
+            const decryptionKey = ensureHexString(decryptionKeyData.decryption_key);
+
+            // 4. Decrypt the message
+            const decryptedHexMessage = await shutterDecrypt(encryptedMessage, decryptionKey);
+            setDecryptedMessage(hexToString(decryptedHexMessage as `0x${string}`));
+        } catch (err) {
+            setError("Failed to decrypt message. Please try again.");
+        }
+    }
+```
+
+### Step 4.5: Building the UI
+
+```typescript
+    return (
+        <div className="App">
+            <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Enter text"
+            />
+            <div>
+                <button onClick={encrypt}>Encrypt</button>
+                <button onClick={decrypt}>Decrypt</button>
+            </div>
+            <div>
+                {encryptedMessage && (
+                    <p>Encrypted Message: {encryptedMessage}</p>
+                )}
+                {countdown !== null && countdown > 0 && (
+                    <p>Decryption available in: {countdown} seconds</p>
+                )}
+                {error && (
+                    <p style={{ color: 'red' }}>{error}</p>
+                )}
+                {decryptedMessage && (
+                    <p>Decrypted Message: {decryptedMessage}</p>
+                )}
+            </div>
+        </div>
+    );
+}
+```
+
+## Step 5: Testing the Application
+
+1. Enter some text in the input field
+2. Click "Encrypt"
+   - You should see the encrypted message
+   - A countdown timer should start
+3. Wait for the countdown to finish
+4. Click "Decrypt"
+   - You should see the original message
+
+## Common Issues and Solutions
+
+1. **Decryption fails**
+   - Make sure you're waiting for the full countdown period
+   - Check that the identity is being properly stored
+   - Verify the API endpoints are correct
+
+2. **Encryption fails**
+   - Check your API connection
+   - Verify the input text is not empty
+   - Ensure all hex strings are properly formatted
+
+3. **Countdown not working**
+   - Verify the DECRYPTION_DELAY constant is set correctly
+   - Check the useEffect hook for the timer
+
+## Support
+Feel free to open an issue on GitHub
