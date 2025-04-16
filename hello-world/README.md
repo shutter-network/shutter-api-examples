@@ -25,13 +25,21 @@ Create a new file `src/api.ts` and copy all the contents to it. For a detailed d
 // This constant defines how long we need to wait before the decryption key becomes available
 export const DECRYPTION_DELAY = 120; // 2 minutes
 
-/* This function registers an identity for a said timestamp. Timestamp provided to this function is meant to be some time in the future at which you want the decryption keys to be released. Once the identity gets registered the endpoint will return the eon key and identity needed for encryption which we utilize in the encrypt function inside src/App.tsx */
+/**
+ * This function registers an identity for a given timestamp.
+ * The timestamp should be in the future, indicating when the decryption keys should be released.
+ * Once the identity is registered, the endpoint returns the eon key and identity,
+ * which are used for encryption in the encrypt function inside src/App.tsx.
+ */
 export async function fetchShutterData(decryptionTimestamp: number): Promise<{
     eon_key: string;
     identity: string;
 }>;
 
-/* Fetches the decryption key for a given identity which we retreived fetchShutterData function. This key becomes available only after the DECRYPTION_DELAY has passed for this tutorial*/
+/**
+ * Fetches the decryption key for a given identity retrieved from fetchShutterData.
+ * This key becomes available only after the DECRYPTION_DELAY has passed (2 minutes).
+ */
 export async function fetchDecryptionKey(identity: string): Promise<{
     decryption_key: string;
 }>;
