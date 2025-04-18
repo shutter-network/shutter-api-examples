@@ -4,7 +4,7 @@ This tutorial will guide you through creating a basic Shutter encryption/decrypt
 
 ## Prerequisites
 
-- Setup a React application (create-react-app, Next.js, Vite, etc.)
+- Setup a React application (Vite, Next.js, etc.)
 - Basic understanding of React hooks and TypeScript
 
 ## Step 1: Setting Up Dependencies
@@ -125,7 +125,8 @@ function App() {
     }, [countdown]);
 ```
 
-### Step 4.3: Implementing the Encryption Function
+### Step 4.3: Implementing the Encrypt Function
+The ```encrypt``` function works in a two step process, first it calculates the decryption timestamp(timestamp at which the decryption keys will be available). It then registers the identity for the decryption timestamp via ```fetchShutterData```. Data which gets returned from the function is then used to encrypt the data via ```encryptData``` function from shutter-sdk.
 
 ```typescript
     async function encrypt(): Promise<void> {
@@ -159,7 +160,7 @@ function App() {
 ```
 
 ### Step 4.4: Implementing the Decryption Function
-
+The ```decrypt``` function is simple. It utilizes the identity which was setup via ```encrypt``` function, checks if the decryption timestamp has passed. If the decryption timestamp has passed it queries for the decryption keys via ```fetchDecryptionKey``` for that identity. Once the decryption key is available you can utilize the ```shutterDecrypt``` function from the shutter-sdk to decrypt to the original message.
 ```typescript
     async function decrypt(): Promise<void> {
         setError('');
@@ -250,6 +251,11 @@ function App() {
 3. **Countdown not working**
    - Verify the DECRYPTION_DELAY constant is set correctly
    - Check the useEffect hook for the timer
+
+## Important links
+- [Shutter-api](https://github.com/shutter-network/shutter-api)
+- [Shutter-sdk](https://github.com/shutter-network/shutter-sdk)
+- [Shutter-api detailed docs](https://shutter-api.shutter.network/docs/index.html)
 
 ## Support
 Feel free to open an issue on GitHub

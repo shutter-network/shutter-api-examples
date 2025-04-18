@@ -9,7 +9,7 @@ function App() {
     const [encryptedMessage, setEncryptedMessage] = useState('');
     const [decryptedMessage, setDecryptedMessage] = useState('');
     const [countdown, setCountdown] = useState<number | null>(null);
-    const [encryptionTimestamp, setEncryptionTimestamp] = useState<number | null>(null);
+    const [decryptionTimestamp, setDecryptionTimestamp] = useState<number | null>(null);
     const [identity, setIdentity] = useState<string>('');
     const [error, setError] = useState<string>('');
 
@@ -29,7 +29,7 @@ function App() {
         setError(''); // Clear any previous errors
         // Set decryption timestamp
         const decryptionTimestamp = Math.floor(Date.now() / 1000) + DECRYPTION_DELAY;
-        setEncryptionTimestamp(decryptionTimestamp);
+        setDecryptionTimestamp(decryptionTimestamp);
         setCountdown(DECRYPTION_DELAY + 2);
 
         // Fetch encryption data from Shutter API
@@ -64,7 +64,7 @@ function App() {
         }
 
         const currentTime = Math.floor(Date.now() / 1000);
-        if (!encryptionTimestamp || currentTime < encryptionTimestamp + 5) {
+        if (!decryptionTimestamp || currentTime < decryptionTimestamp + 5) {
             setError(`Please wait before decryption key is available`);
             return;
         }
