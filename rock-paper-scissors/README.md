@@ -411,5 +411,10 @@ function App() {
    - Check that the encryption process is working
    - Ensure the state is being updated properly
 
+## Important links
+- [Shutter-api](https://github.com/shutter-network/shutter-api)
+- [Shutter-sdk](https://github.com/shutter-network/shutter-sdk)
+- [Shutter-api detailed docs](https://shutter-api.shutter.network/docs/index.html)
+
 ## Support
 Feel free to open an issue on GitHub
